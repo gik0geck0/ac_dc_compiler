@@ -5,5 +5,5 @@ import Tokenizer
 main :: IO ()
 main = do
     s <- getLine
-    putStrLn $ show $ lexer $ tokenize s
+    putStrLn $ show $ parse $ tokenize s
     main

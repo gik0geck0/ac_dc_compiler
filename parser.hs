@@ -41,8 +41,8 @@ data Operator =
       Plus
     | Minus deriving Show
 
-lexer :: Tokens -> Maybe Program
-lexer tks = let prog = program tks
+parse :: Tokens -> Maybe Program
+parse tks = let prog = program tks
     in if isJust prog then Just $ fst $ fromJust prog else Nothing
 
 program :: Parser Program

@@ -3,4 +3,4 @@
 all: build
 
 build:
-	ghc -Wall lexer.hs  main.hs  tokenizer.hs
+	ghc -Wall parser.hs  main.hs  tokenizer.hs
