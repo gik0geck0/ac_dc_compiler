@@ -7,12 +7,12 @@ import Text.Regex.Posix
 
 type Parser a = Tokens -> Maybe (a, Tokens)
 
-data Program = Prog Declarations Statements deriving Show
+data Program = Program Declarations Statements deriving Show
 
 -- Note: It's implied here that there MUST be an initialization. This is because I don't know how to do Empty binding
 data Declaration =
-      Finit Float
-    | Iinit Int deriving Show
+      Finit Identifier
+    | Iinit Identifier deriving Show
 data Declarations =
       Declarations Declaration Declarations
     | NoDeclarations deriving Show
@@ -41,23 +41,44 @@ data Operator =
       Plus
     | Minus deriving Show
 
-lexer :: Tokens -> Maybe Statements
--- lexer = fst . program
--- lexer tks = let prog = value tks
---     in if isJust prog then fst $ fromJust prog else SValue $ Identifier "INVALID TOKEN!!!!"
-lexer tks = let prog = statements tks
+lexer :: Tokens -> Maybe Program
+lexer tks = let prog = program tks
     in if isJust prog then Just $ fst $ fromJust prog else Nothing
 
-{-|
 program :: Parser Program
 program tkns =
-    let (dcls, trd) = fromJust $ declarations tkns
-        (exprs, tre) = fromJust $ expressions trd
-    in Just (Program dcls exprs, tre)
+    let decls = declarations tkns
+        stmts = statements $ snd $ fromJust decls
+    in if isJust decls then
+        if isJust stmts then Just (Program (fst $ fromJust decls) (fst $ fromJust stmts), snd $ fromJust stmts)
+        else trace "Error in statements" Nothing
+    else trace "Error in declarations." Nothing
 
 declarations :: Parser Declarations
-declarations tkns = if head tkns != "+" && head tkns != "-"
--}
+declarations [] = Just (NoDeclarations, [])
+declarations (t:[]) = Just (NoDeclarations, t:[])
+declarations (t:ts) =
+    let decl = declaration (t:ts)
+        moreDecls = declarations $ snd $ fromJust decl
+    -- Predict if this will be a valid declaration
+    in if t == "f" || t == "i" then
+        if isJust decl then
+            if isJust moreDecls then Just (Declarations (fst $ fromJust decl) (fst $ fromJust moreDecls), snd $ fromJust moreDecls)
+                else trace "Error in a deeper declaration" Nothing
+        else trace "Incorrect delaration" Nothing
+    else Just (NoDeclarations, ts)
+
+declaration :: Parser Declaration
+declaration [] = Nothing
+declaration (_:[]) = Nothing
+declaration (t:tkns) =
+    let ident = identifier tkns
+    in if isJust ident then
+        if t == "f" then Just (Finit $ fst $ fromJust ident, snd $ fromJust ident)
+        else if t == "i" then Just (Iinit $ fst $ fromJust ident, snd $ fromJust ident)
+        else trace "Invalid type instantiator" Nothing
+    -- NOTE: We don't want a trace here. We use the failing from this to tell us that a declaration is not going on.
+    else Nothing
 
 statements :: Parser Statements
 statements [] = Just (NoStatements, [])
@@ -80,7 +101,7 @@ statement :: Parser Statement
 statement [] = trace "Ran out of tokens" Nothing
 statement (_:[]) = trace "Statements require more than 1 token" Nothing
 statement (t:ts) =
-    if t == "print" then
+    if t == "p" then
         let ident = identifier ts
         in if isJust ident then Just (Print $ fst $ fromJust ident, snd $ fromJust ident)
             else Nothing
@@ -129,4 +150,5 @@ value (t:ts) =
 identifier :: Parser Identifier
 identifier [] = Nothing
 identifier (t:ts) =
-    if t =~ "^[a-zA-Z]+$" then Just (Identifier t, ts) else Nothing
+    -- An identifier must NOT be the single letter: i,f,p, but any identifier that starts with it MUST have more than one character
+    if t =~ "^[a-eghj-oq-zA-Z]|[a-zA-Z][a-zA-Z]+$" then Just (Identifier t, ts) else Nothing
