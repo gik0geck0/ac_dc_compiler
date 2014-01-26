@@ -66,7 +66,7 @@ declarations (t:ts) =
             if isJust moreDecls then Just (Declarations (fst $ fromJust decl) (fst $ fromJust moreDecls), snd $ fromJust moreDecls)
                 else trace "Error in a deeper declaration" Nothing
         else trace "Incorrect delaration" Nothing
-    else Just (NoDeclarations, ts)
+    else Just (NoDeclarations, (t:ts))
 
 declaration :: Parser Declaration
 declaration [] = Nothing
@@ -85,7 +85,7 @@ statements [] = Just (NoStatements, [])
 statements (t:[]) = Just (NoStatements, t:[])
 statements (t:ts) =
     -- Predict if there are more statements
-    if t == "print" || (isJust $ identifier (t:[]))
+    if t == "p" || (isJust $ identifier (t:[]))
         then let stmt = statement (t:ts)
         in if isJust stmt then
             let moreStmts = statements $ snd $ fromJust stmt
@@ -93,8 +93,7 @@ statements (t:ts) =
                 then Just (Statements (fst $ fromJust stmt) (fst $ fromJust moreStmts), snd $ fromJust moreStmts)
             else trace "Stmts::MoreStatements has Errored" Nothing
         else trace "Stmts::oneStatement has Errored" Nothing
-    else
-        Just (NoStatements, t:ts)
+    else Just (NoStatements, t:ts)
 
 
 statement :: Parser Statement
