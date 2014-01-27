@@ -141,7 +141,7 @@ operator (t:ts) =
     case t of
         PlusTok  -> Just (Plus, ts)
         MinusTok -> Just (Minus, ts)
-        _        -> trace ("Unknown operator: " ++ show t) Nothing
+        _        -> Nothing
     -- if t == PlusTok then Just (Plus, ts)
     -- else if t == MinusTok then Just (Minus, ts)
     -- else Nothing
