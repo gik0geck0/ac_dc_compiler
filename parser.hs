@@ -1,4 +1,4 @@
-module Lexer where
+module Parser where
 
 import Data.Maybe
 import Debug.Trace
