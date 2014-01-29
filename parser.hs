@@ -41,8 +41,12 @@ data Operator =
     | Minus deriving Show
 
 parse :: Tokens -> Maybe Program
-parse tks = let prog = program tks
-    in if isJust prog then Just $ fst $ fromJust prog else Nothing
+parse tks =
+    let prog = program tks
+        validProg = validateProgram prog
+    in if isJust prog then validProg
+    else Nothing
+    -- Just $ fst $ fromJust prog else Nothing
 
 program :: Parser Program
 program tkns =
@@ -167,3 +171,83 @@ identifier (t:ts) =
         IdentifierTok it -> Just (Identifier it, ts)
         _               -> trace ("Expected an identifier, but got " ++ show t) Nothing
     -- if t =~ "^[a-eghj-oq-zA-Z]|[a-zA-Z][a-zA-Z]+$" then Just (Identifier t, ts) else Nothing
+
+validateProgram :: Maybe (Program, Tokens) -> Maybe Program
+validateProgram mprog =
+    let (Program dcls stmts, ts) = fromJust mprog
+    in if isJust mprog then
+        if ts == [] then
+            -- we have a Just program that consumed all the tokens. Good. Now, is it actually valid?
+            -- Are all used variables declared?
+            let dclist = getDclList dcls
+                validStmts = checkDeclarations dclist [] (Just stmts)
+            in if isJust validStmts then Just $ Program dcls $ fromJust validStmts
+               else Nothing
+        else trace "Error: Program did not consume all the tokens" Nothing
+    else trace "Cannot validate a Nothing program" Nothing
+
+getDclList :: Declarations -> [Declaration]
+getDclList dcls =
+    case dcls of
+        Declarations adcl moredcls  -> adcl:(getDclList moredcls)
+        NoDeclarations               -> []
+
+-- checks that all the variables in the statements are declared
+-- Subroutines were injected that ALSO check that variables have been instantiated - something only needed for values and expressions (right side of assignment)
+-- Instantiated list will start off empty, and be populated as the function recurses down (recurses sequentially)
+checkDeclarations :: [Declaration] -> [Char] -> Maybe Statements -> Maybe Statements
+checkDeclarations _ _ Nothing = Nothing
+checkDeclarations dclist inslist (Just stmts) =
+    case stmts of
+        NoStatements -> Just stmts
+        Statements stmt moreStmts   ->
+            case stmt of
+                Print ident ->  if isIdentDeclared dclist ident then
+                                    if isIdentInstantiated inslist ident then checkDeclarations dclist inslist $ Just stmts
+                                    else trace ("Cannot print uninstantiated identifier: " ++ show ident) Nothing
+                                else trace ("Cannot print undeclared identifier: " ++ show ident) Nothing
+                Assignment ident val expr ->
+                    if isIdentDeclared dclist ident then
+                        if isValDeclared dclist inslist val then
+                            if isJust $ checkExpressionDeclarations dclist inslist expr then
+                                -- ident was isntantiated in this statement. the recursion step on moreStmts should understand that
+                                let recStmts = checkDeclarations dclist ((getIdentChar ident):inslist) $ Just moreStmts
+                                in if isJust recStmts then Just $ Statements stmt moreStmts
+                                else Nothing -- subsequent statement failed
+                            else Nothing -- subsequence expression failed
+                        else trace (show val ++ " used before instantiation in " ++ show stmt) Nothing
+                    else trace (show ident ++ " not declared before use in " ++ show stmt) Nothing
+
+isIdentDeclared :: [Declaration] -> Identifier -> Bool
+isIdentDeclared [] _ = False
+isIdentDeclared (dcl:ds) ident@(Identifier ic) =
+    let dc = getIChar dcl
+    in if ic == dc then True
+       else isIdentDeclared ds ident
+
+isIdentInstantiated :: [Char] -> Identifier -> Bool
+isIdentInstantiated [] _ = False
+isIdentInstantiated (i:is) ident@(Identifier ic) =
+    if i == ic then True
+    else isIdentInstantiated is ident
+
+isValDeclared :: [Declaration] -> [Char] -> Value -> Bool
+isValDeclared _ _ (FValue _) = True
+isValDeclared _ _ (IValue _) = True
+isValDeclared dclist inslist (SValue ident) =
+    if isIdentDeclared dclist ident && isIdentInstantiated inslist ident then True
+    else False
+
+checkExpressionDeclarations :: [Declaration] -> [Char] -> Expression -> Maybe Expression
+checkExpressionDeclarations _ _ NoExpression = Just NoExpression
+checkExpressionDeclarations dclist inslist (Expression _ val moreExprs) =
+    if isValDeclared dclist inslist val then
+        checkExpressionDeclarations dclist inslist moreExprs
+    else trace (show val ++ " used before instantiation") Nothing
+
+getIChar :: Declaration -> Char
+getIChar (FDcl (Identifier ic)) = ic
+getIChar (IDcl (Identifier ic)) = ic
+
+getIdentChar :: Identifier -> Char
+getIdentChar (Identifier ic) = ic
