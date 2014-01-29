@@ -17,8 +17,8 @@ genStatements (Statements stmt moreStmts) =
 
 genStatement :: Statement -> String
 genStatement (Print ident) = (load ident) ++ "p"
-genStatement (Assignment (Identifier ident) v expr) =
-    (genValue v) ++ (genExpression expr) ++ "s" ++ (ident:[])
+genStatement (Assignment ident v expr) =
+    (genValue v) ++ (genExpression expr) ++ "s" ++ (genIdentifier ident)
 
 genExpression :: Expression -> String
 genExpression NoExpression = ""
@@ -26,9 +26,9 @@ genExpression (Expression op val moreExp) =
     (genValue val) ++ (genOperator op) ++ (genExpression moreExp)
 
 genValue :: Value -> String
-genValue (SValue ident) = genIdentifier ident
-genValue (FValue f) = show f
-genValue (IValue i) = show i
+genValue (SValue ident) = load ident
+genValue (FValue f) = show f ++ " "
+genValue (IValue i) = show i ++ " "
 
 genOperator :: Operator -> String
 genOperator Minus = "-"
