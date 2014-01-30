@@ -203,7 +203,10 @@ checkDeclarations dclist inslist (Just stmts) =
         Statements stmt moreStmts   ->
             case stmt of
                 Print ident ->  if isIdentDeclared dclist ident then
-                                    if isIdentInstantiated inslist ident then checkDeclarations dclist inslist $ Just stmts
+                                    if isIdentInstantiated inslist ident then 
+                                        let dclchk = checkDeclarations dclist inslist $ Just moreStmts
+                                        in if isJust dclchk then Just $ Statements stmt $ fromJust dclchk
+                                        else Nothing
                                     else trace ("Cannot print uninstantiated identifier: " ++ show ident) Nothing
                                 else trace ("Cannot print undeclared identifier: " ++ show ident) Nothing
                 Assignment ident val expr ->
